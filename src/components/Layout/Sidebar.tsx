@@ -12,8 +12,6 @@ type Page = 'dashboard' | 'athletes' | 'payments' | 'transactions' | 'settings';
 interface SidebarProps {
   currentPage: Page;
   onNavigate: (page: Page) => void;
-  open?: boolean;
-  onClose?: () => void;
 }
 
 const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
@@ -24,12 +22,12 @@ const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'settings',    label: 'Configuración',  icon: <SettingsIcon /> },
 ];
 
-export function Sidebar({ currentPage, onNavigate, open, onClose }: SidebarProps) {
+export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   const { config } = useStore();
   const { tasa, fechaActualizacion } = useExchangeRate();
 
   return (
-    <aside className={`sidebar${open ? ' open' : ''}`}>
+    <aside className="sidebar">
       {/* Brand */}
       <div className="sidebar-brand">
         <img src={logoUrl} alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain' }} />
@@ -46,7 +44,7 @@ export function Sidebar({ currentPage, onNavigate, open, onClose }: SidebarProps
           <button
             key={item.id}
             className={`nav-item${currentPage === item.id ? ' active' : ''}`}
-            onClick={() => { onNavigate(item.id); onClose?.(); }}
+            onClick={() => { onNavigate(item.id); }}
             aria-current={currentPage === item.id ? 'page' : undefined}
           >
             {item.icon}

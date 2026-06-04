@@ -30,12 +30,10 @@ function AppInner() {
   useFirestoreSync();
 
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { config, dataLoading } = useStore();
 
   const navigate = useCallback((page: Page) => {
     setCurrentPage(page);
-    setSidebarOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -69,19 +67,10 @@ function AppInner() {
 
   return (
     <div className="app-layout">
-      {/* Sidebar overlay (mobile) */}
-      <div
-        className={`sidebar-overlay${sidebarOpen ? ' visible' : ''}`}
-        onClick={() => setSidebarOpen(false)}
-        aria-hidden="true"
-      />
-
       {/* Sidebar */}
       <Sidebar
         currentPage={currentPage}
         onNavigate={navigate}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
       />
 
       {/* Main content */}
@@ -89,17 +78,7 @@ function AppInner() {
         {/* Page header */}
         <header className="page-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
-            {/* Mobile menu button */}
-            <button
-              className="btn btn-icon btn-ghost"
-              style={{ display: 'none' }}
-              id="mobile-menu-btn"
-              onClick={() => setSidebarOpen((o) => !o)}
-              aria-label="Abrir menú"
-              aria-expanded={sidebarOpen}
-            >
-              <MenuIcon />
-            </button>
+
 
             {/* Mobile logo */}
             <div style={{ display: 'none' }} id="mobile-logo">
@@ -132,7 +111,6 @@ function AppInner() {
       {/* Mobile-specific CSS overrides */}
       <style>{`
         @media (max-width: 768px) {
-          #mobile-menu-btn { display: flex !important; }
           #mobile-logo { display: flex !important; align-items: center; }
         }
       `}</style>
