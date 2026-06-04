@@ -35,7 +35,7 @@ const emptyForm = (): PaymentForm => ({
 });
 
 export function Payments() {
-  const { atletas, pagos, config, addPago, deletePago, isSubmitting } = useStore();
+  const { atletas, pagos, config, addPagos, deletePago, isSubmitting } = useStore();
   const { tasa } = useExchangeRate();
   const { toasts, addToast, removeToast } = useToast();
   const { mes, anio } = getCurrentMonthYear();
@@ -160,25 +160,33 @@ export function Payments() {
       if (form.moneda === 'bs' && form.metodoPago === 'efectivo_usd') metodoPago = 'efectivo_bs';
     }
 
-    await Promise.all(form.mesesSeleccionados.map(m =>
-      addPago({
-        atletaId: form.atletaId,
-        mes: m.mes,
-        anio: m.anio,
-        monto: montoBs,
-        montoDolar,
-        metodoPago,
-        referencia: (!form.isExonerado && form.referencia) ? form.referencia : undefined,
-        tasaCambio: tasa,
-        fecha: new Date().toISOString(),
-        notas: form.notas || undefined,
-      })
-    ));
+    try {
+      const pagosToSave = form.mesesSeleccionados.map(m => {
+        const payload: Omit<Pago, 'id'> = {
+          atletaId: form.atletaId,
+          mes: m.mes,
+          anio: m.anio,
+          monto: montoBs,
+          metodoPago,
+          tasaCambio: tasa,
+          fecha: new Date().toISOString(),
+        };
+        if (montoDolar !== undefined) payload.montoDolar = montoDolar;
+        if (!form.isExonerado && form.referencia) payload.referencia = form.referencia;
+        if (form.notas) payload.notas = form.notas;
+        return payload;
+      });
 
-    addToast(`Pago${qty > 1 ? 's' : ''} registrado${qty > 1 ? 's' : ''} correctamente`);
-    setShowModal(false);
-    setForm(emptyForm());
-    setFormErrors({});
+      await addPagos(pagosToSave);
+
+      addToast(`Pago${qty > 1 ? 's' : ''} registrado${qty > 1 ? 's' : ''} correctamente`);
+      setShowModal(false);
+      setForm(emptyForm());
+      setFormErrors({});
+    } catch (error) {
+      console.error(error);
+      addToast('Ocurrió un error al registrar el pago', 'error');
+    }
   }
 
   function openModal() {

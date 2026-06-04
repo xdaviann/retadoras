@@ -63,6 +63,7 @@ interface AppState {
 
   // ── Pagos ──────────────────────────────────────────────────────────────────
   addPago: (pago: Omit<Pago, 'id'>) => Promise<void>;
+  addPagos: (pagos: Omit<Pago, 'id'>[]) => Promise<void>;
   updatePago: (id: string, data: Partial<Pago>) => Promise<void>;
   deletePago: (id: string) => Promise<void>;
 
@@ -106,6 +107,9 @@ function withSubmit<T extends unknown[]>(
 
 const col = (name: string) => collection(db, name);
 const docRef = (name: string, id: string) => doc(db, name, id);
+const clean = <T extends Record<string, any>>(obj: T): T => {
+  return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined)) as T;
+};
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -123,11 +127,11 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Atletas ────────────────────────────────────────────────────────────────
 
   addAtleta: withSubmit(set, get, async (data: Omit<Atleta, 'id'>) => {
-    await addDoc(col('atletas'), data);
+    await addDoc(col('atletas'), clean(data));
   }),
 
   updateAtleta: withSubmit(set, get, async (id: string, data: Partial<Atleta>) => {
-    await updateDoc(docRef('atletas', id), data as Record<string, unknown>);
+    await updateDoc(docRef('atletas', id), clean(data) as Record<string, unknown>);
   }),
 
   toggleAtletaActiva: withSubmit(set, get, async (id: string) => {
@@ -146,11 +150,15 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Pagos ──────────────────────────────────────────────────────────────────
 
   addPago: withSubmit(set, get, async (data: Omit<Pago, 'id'>) => {
-    await addDoc(col('pagos'), data);
+    await addDoc(col('pagos'), clean(data));
+  }),
+
+  addPagos: withSubmit(set, get, async (pagosData: Omit<Pago, 'id'>[]) => {
+    await Promise.all(pagosData.map(data => addDoc(col('pagos'), clean(data))));
   }),
 
   updatePago: withSubmit(set, get, async (id: string, data: Partial<Pago>) => {
-    await updateDoc(docRef('pagos', id), data as Record<string, unknown>);
+    await updateDoc(docRef('pagos', id), clean(data) as Record<string, unknown>);
   }),
 
   deletePago: withSubmit(set, get, async (id: string) => {
@@ -160,11 +168,11 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Movimientos ────────────────────────────────────────────────────────────
 
   addMovimiento: withSubmit(set, get, async (data: Omit<Movimiento, 'id'>) => {
-    await addDoc(col('movimientos'), data);
+    await addDoc(col('movimientos'), clean(data));
   }),
 
   updateMovimiento: withSubmit(set, get, async (id: string, data: Partial<Movimiento>) => {
-    await updateDoc(docRef('movimientos', id), data as Record<string, unknown>);
+    await updateDoc(docRef('movimientos', id), clean(data) as Record<string, unknown>);
   }),
 
   deleteMovimiento: withSubmit(set, get, async (id: string) => {
@@ -174,7 +182,7 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Categorías ─────────────────────────────────────────────────────────────
 
   addCategoria: withSubmit(set, get, async (data: Omit<CategoriaMovimiento, 'id'>) => {
-    await addDoc(col('categorias'), data);
+    await addDoc(col('categoriasMovimientos'), clean(data));
   }),
 
   deleteCategoria: withSubmit(set, get, async (id: string) => {
