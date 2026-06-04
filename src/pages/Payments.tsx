@@ -12,9 +12,9 @@ import type { MetodoPago, Pago } from '../types';
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 4 }, (_, i) => CURRENT_YEAR - 1 + i);
 
-type PaymentForm = {
   atletaId: string;
   mesesSeleccionados: { mes: number; anio: number }[];
+  isExonerado: boolean;
   montoInput: string;       // Raw input
   moneda: 'bs' | 'usd';
   metodoPago: MetodoPago;
@@ -25,6 +25,7 @@ type PaymentForm = {
 const emptyForm = (): PaymentForm => ({
   atletaId: '',
   mesesSeleccionados: [],
+  isExonerado: false,
   montoInput: '',
   moneda: 'bs',
   metodoPago: 'efectivo_bs',
@@ -124,10 +125,13 @@ export function Payments() {
     const errs: Partial<Record<keyof PaymentForm | 'mesesSeleccionados', string>> = {};
     if (!form.atletaId) errs.atletaId = 'Selecciona una atleta';
     if (form.mesesSeleccionados.length === 0) errs.mesesSeleccionados = 'Selecciona al menos un mes';
-    const v = parseFloat(form.montoInput);
-    if (isNaN(v) || v <= 0) errs.montoInput = 'Ingresa un monto válido';
-    if (form.metodoPago === 'pago_movil' && !form.referencia.trim()) {
-      errs.referencia = 'El número de referencia es requerido para Pago Móvil';
+    
+    if (!form.isExonerado) {
+      const v = parseFloat(form.montoInput);
+      if (isNaN(v) || v <= 0) errs.montoInput = 'Ingresa un monto válido';
+      if (form.metodoPago === 'pago_movil' && !form.referencia.trim()) {
+        errs.referencia = 'El número de referencia es requerido para Pago Móvil';
+      }
     }
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
@@ -135,17 +139,24 @@ export function Payments() {
 
   function handleSubmit() {
     if (!validate()) return;
-    const v = parseFloat(form.montoInput);
-    const totalBs = form.moneda === 'usd' ? usdToBs(v, tasa) : v;
-    const totalDolar = form.moneda === 'usd' ? v : undefined;
     
+    let montoBs = 0;
+    let montoDolar: number | undefined = undefined;
+    let metodoPago: MetodoPago = 'exonerado';
     const qty = form.mesesSeleccionados.length;
-    const montoBs = totalBs / qty;
-    const montoDolar = totalDolar ? totalDolar / qty : undefined;
 
-    let metodoPago: MetodoPago = form.metodoPago;
-    if (form.moneda === 'usd') metodoPago = 'efectivo_usd';
-    if (form.moneda === 'bs' && form.metodoPago === 'efectivo_usd') metodoPago = 'efectivo_bs';
+    if (!form.isExonerado) {
+      const v = parseFloat(form.montoInput);
+      const totalBs = form.moneda === 'usd' ? usdToBs(v, tasa) : v;
+      const totalDolar = form.moneda === 'usd' ? v : undefined;
+      
+      montoBs = totalBs / qty;
+      montoDolar = totalDolar ? totalDolar / qty : undefined;
+
+      metodoPago = form.metodoPago;
+      if (form.moneda === 'usd') metodoPago = 'efectivo_usd';
+      if (form.moneda === 'bs' && form.metodoPago === 'efectivo_usd') metodoPago = 'efectivo_bs';
+    }
 
     form.mesesSeleccionados.forEach(m => {
       addPago({
@@ -155,7 +166,7 @@ export function Payments() {
         monto: montoBs,
         montoDolar,
         metodoPago,
-        referencia: form.referencia || undefined,
+        referencia: (!form.isExonerado && form.referencia) ? form.referencia : undefined,
         tasaCambio: tasa,
         fecha: new Date().toISOString(),
         notas: form.notas || undefined,
@@ -405,70 +416,87 @@ export function Payments() {
             {formErrors.mesesSeleccionados && <span className="form-error">{formErrors.mesesSeleccionados}</span>}
           </div>
 
-          {/* Moneda */}
+          {/* Tipo de registro */}
           <div className="form-group">
-            <label className="form-label">Moneda</label>
-            <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-              {(['bs', 'usd'] as const).map((m) => (
-                <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', cursor: 'pointer', flex: 1, background: form.moneda === m ? 'var(--accent-muted)' : 'var(--bg-elevated)', border: `1px solid ${form.moneda === m ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', padding: 'var(--sp-3)', transition: 'all 0.15s' }}>
-                  <input type="radio" name="moneda" value={m} checked={form.moneda === m} onChange={f('moneda')} style={{ accentColor: 'var(--accent)' }} />
-                  <span style={{ fontWeight: 600, color: form.moneda === m ? 'var(--accent)' : 'var(--ink-secondary)' }}>
-                    {m === 'bs' ? 'Bolívares (Bs.)' : 'Dólares (USD)'}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Método de pago */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="pago-metodo">Método de pago *</label>
-            <select id="pago-metodo" className="form-select" value={form.metodoPago} onChange={f('metodoPago')} disabled={form.moneda === 'usd'}>
-              {form.moneda === 'usd' ? (
-                <option value="efectivo_usd">Efectivo USD</option>
-              ) : (
-                <>
-                  <option value="efectivo_bs">Efectivo Bs.</option>
-                  <option value="pago_movil">Pago Móvil Bs.</option>
-                </>
-              )}
-            </select>
-          </div>
-
-          {/* Monto */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="pago-monto">
-              Monto en {form.moneda === 'usd' ? 'USD' : 'Bs.'} *
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={form.isExonerado} 
+                onChange={(e) => setForm(prev => ({ ...prev, isExonerado: e.target.checked }))} 
+                style={{ width: 16, height: 16, accentColor: 'var(--accent)' }} 
+              />
+              Exonerar mensualidad (No registrar monto)
             </label>
-            <input
-              id="pago-monto"
-              type="number"
-              step="0.01"
-              min="0"
-              className="form-input"
-              value={form.montoInput}
-              onChange={f('montoInput')}
-              placeholder={form.moneda === 'usd' ? (config.mensualidadBase * Math.max(1, form.mesesSeleccionados.length)).toFixed(2) : (config.mensualidadBase * tasa * Math.max(1, form.mesesSeleccionados.length)).toFixed(2)}
-            />
-            {formErrors.montoInput && <span className="form-error">{formErrors.montoInput}</span>}
-            {montoPreview && (
-              <div style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--r-md)', padding: 'var(--sp-3)', marginTop: 'var(--sp-2)', fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--ink-muted)' }}>Tasa BCV: {tasa.toFixed(2)} Bs/$</span>
-                {form.moneda === 'usd'
-                  ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>= {formatBs(montoPreview.bs)}</span>
-                  : <span style={{ color: 'var(--ink-secondary)', fontWeight: 600 }}>≈ {formatUSD(montoPreview.usd)}</span>
-                }
-              </div>
-            )}
           </div>
 
-          {/* Referencia (only for pago móvil) */}
-          {form.metodoPago === 'pago_movil' && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="pago-ref">Número de referencia *</label>
-              <input id="pago-ref" className="form-input" value={form.referencia} onChange={f('referencia')} placeholder="Ej: 00123456789" />
-              {formErrors.referencia && <span className="form-error">{formErrors.referencia}</span>}
-            </div>
+          {!form.isExonerado && (
+            <>
+              {/* Moneda */}
+              <div className="form-group">
+                <label className="form-label">Moneda</label>
+                <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
+                  {(['bs', 'usd'] as const).map((m) => (
+                    <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', cursor: 'pointer', flex: 1, background: form.moneda === m ? 'var(--accent-muted)' : 'var(--bg-elevated)', border: `1px solid ${form.moneda === m ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 'var(--r-md)', padding: 'var(--sp-3)', transition: 'all 0.15s' }}>
+                      <input type="radio" name="moneda" value={m} checked={form.moneda === m} onChange={f('moneda')} style={{ accentColor: 'var(--accent)' }} />
+                      <span style={{ fontWeight: 600, color: form.moneda === m ? 'var(--accent)' : 'var(--ink-secondary)' }}>
+                        {m === 'bs' ? 'Bolívares (Bs.)' : 'Dólares (USD)'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Método de pago */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="pago-metodo">Método de pago *</label>
+                <select id="pago-metodo" className="form-select" value={form.metodoPago} onChange={f('metodoPago')} disabled={form.moneda === 'usd'}>
+                  {form.moneda === 'usd' ? (
+                    <option value="efectivo_usd">Efectivo USD</option>
+                  ) : (
+                    <>
+                      <option value="efectivo_bs">Efectivo Bs.</option>
+                      <option value="pago_movil">Pago Móvil Bs.</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              {/* Monto */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="pago-monto">
+                  Monto en {form.moneda === 'usd' ? 'USD' : 'Bs.'} *
+                </label>
+                <input
+                  id="pago-monto"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-input"
+                  value={form.montoInput}
+                  onChange={f('montoInput')}
+                  placeholder={form.moneda === 'usd' ? (config.mensualidadBase * Math.max(1, form.mesesSeleccionados.length)).toFixed(2) : (config.mensualidadBase * tasa * Math.max(1, form.mesesSeleccionados.length)).toFixed(2)}
+                />
+                {formErrors.montoInput && <span className="form-error">{formErrors.montoInput}</span>}
+                {montoPreview && (
+                  <div style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--r-md)', padding: 'var(--sp-3)', marginTop: 'var(--sp-2)', fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--ink-muted)' }}>Tasa BCV: {tasa.toFixed(2)} Bs/$</span>
+                    {form.moneda === 'usd'
+                      ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>= {formatBs(montoPreview.bs)}</span>
+                      : <span style={{ color: 'var(--ink-secondary)', fontWeight: 600 }}>≈ {formatUSD(montoPreview.usd)}</span>
+                    }
+                  </div>
+                )}
+              </div>
+
+              {/* Referencia (only for pago móvil) */}
+              {form.metodoPago === 'pago_movil' && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="pago-ref">Número de referencia *</label>
+                  <input id="pago-ref" className="form-input" value={form.referencia} onChange={f('referencia')} placeholder="Ej: 00123456789" />
+                  {formErrors.referencia && <span className="form-error">{formErrors.referencia}</span>}
+                </div>
+              )}
+            </>
           )}
 
           {/* Notas */}
