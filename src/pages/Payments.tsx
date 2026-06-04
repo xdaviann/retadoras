@@ -12,6 +12,7 @@ import type { MetodoPago, Pago } from '../types';
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 4 }, (_, i) => CURRENT_YEAR - 1 + i);
 
+type PaymentForm = {
   atletaId: string;
   mesesSeleccionados: { mes: number; anio: number }[];
   isExonerado: boolean;
