@@ -498,7 +498,7 @@ a:hover { color: var(--accent-dim); }
   border-radius: var(--r-md);
   color: var(--ink-primary);
   font-family: var(--font-body);
-  font-size: 0.9rem;
+  font-size: 16px; /* Prevents auto-zoom on iOS */
   transition: border-color var(--t-fast) var(--ease-out);
   outline: none;
   appearance: none;
