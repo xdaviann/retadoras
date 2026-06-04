@@ -27,7 +27,7 @@ const emptyForm = (): AtletaForm => ({
 });
 
 export function Athletes() {
-  const { atletas, pagos, addAtleta, updateAtleta, toggleAtletaActiva, deleteAtleta, isSubmitting } = useStore();
+  const { atletas, pagos, addAtleta, updateAtleta, toggleAtletaActiva, deleteAtleta, isSubmitting, athletesFilterPayment, setAthletesFilterPayment } = useStore();
   const { toasts, addToast, removeToast } = useToast();
   const { mes, anio } = getCurrentMonthYear();
 
@@ -75,9 +75,16 @@ export function Athletes() {
         filterStatus === 'todas' ||
         (filterStatus === 'activa' && a.activa) ||
         (filterStatus === 'inactiva' && !a.activa);
-      return matchSearch && matchCat && matchStatus;
+      
+      const deuda = getDeuda(a);
+      const matchPayment =
+        athletesFilterPayment === 'todas' ||
+        (athletesFilterPayment === 'deudoras' && deuda > 0) ||
+        (athletesFilterPayment === 'aldia' && deuda === 0);
+
+      return matchSearch && matchCat && matchStatus && matchPayment;
     });
-  }, [atletas, search, filterCat, filterStatus]);
+  }, [atletas, search, filterCat, filterStatus, athletesFilterPayment, pagos, anio, mes]);
 
   function validate(): boolean {
     const errs: Partial<Record<keyof AtletaForm, string>> = {};
@@ -209,6 +216,11 @@ export function Athletes() {
           <option value="activa">Activas</option>
           <option value="inactiva">Inactivas</option>
           <option value="todas">Todas</option>
+        </select>
+        <select className="form-select" style={{ width: 'auto', minWidth: 120 }} value={athletesFilterPayment} onChange={(e) => setAthletesFilterPayment(e.target.value as 'todas' | 'deudoras' | 'aldia')}>
+          <option value="todas">Pagos: Todos</option>
+          <option value="deudoras">Deudoras</option>
+          <option value="aldia">Al día</option>
         </select>
       </div>
 

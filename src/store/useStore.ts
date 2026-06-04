@@ -51,9 +51,11 @@ interface AppState {
   // UI state
   dataLoading: boolean;   // initial Firestore snapshot not yet received
   isSubmitting: boolean;  // any write operation in progress (prevents double submit)
+  athletesFilterPayment: 'todas' | 'deudoras' | 'aldia';
 
   // Internal setter used by the sync hook (not exposed to UI)
   _setData: (partial: Partial<Pick<AppState, 'atletas' | 'pagos' | 'movimientos' | 'categoriasMovimientos' | 'config' | 'dataLoading'>>) => void;
+  setAthletesFilterPayment: (f: 'todas' | 'deudoras' | 'aldia') => void;
 
   // ── Atletas ────────────────────────────────────────────────────────────────
   addAtleta: (atleta: Omit<Atleta, 'id'>) => Promise<void>;
@@ -121,8 +123,10 @@ export const useStore = create<AppState>((set, get) => ({
   config: defaultConfig,
   dataLoading: true,
   isSubmitting: false,
+  athletesFilterPayment: 'todas',
 
   _setData: (partial) => set(partial),
+  setAthletesFilterPayment: (f) => set({ athletesFilterPayment: f }),
 
   // ── Atletas ────────────────────────────────────────────────────────────────
 

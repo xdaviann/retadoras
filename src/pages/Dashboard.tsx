@@ -9,7 +9,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const { atletas, pagos, movimientos, config } = useStore();
+  const { atletas, pagos, movimientos, config, setAthletesFilterPayment } = useStore();
   const { tasa } = useExchangeRate();
   const { mes, anio } = getCurrentMonthYear();
 
@@ -168,7 +168,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <div className="card">
           <div className="card-header">
             <span className="card-title">Pagos pendientes</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('payments')}>
+            <button className="btn btn-ghost btn-sm" onClick={() => {
+              setAthletesFilterPayment('deudoras');
+              onNavigate('athletes');
+            }}>
               Ver todos
             </button>
           </div>
