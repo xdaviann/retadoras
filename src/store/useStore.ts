@@ -1,10 +1,17 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type {
-  Atleta, Pago, Movimiento, CategoriaMovimiento, Config
-} from '../types';
+import {
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  getDoc,
+} from 'firebase/firestore';
+import { db } from '../services/firebase';
+import type { Atleta, Pago, Movimiento, CategoriaMovimiento, Config } from '../types';
 
-// ─── Default Categories ───────────────────────────────────────────────────────
+// ─── Default Data ─────────────────────────────────────────────────────────────
 
 const defaultCategoriasIngreso: CategoriaMovimiento[] = [
   { id: 'cat-ing-1', nombre: 'Otro Ingreso', tipo: 'ingreso' },
@@ -24,7 +31,7 @@ const defaultCategoriasGasto: CategoriaMovimiento[] = [
   { id: 'cat-gas-8', nombre: 'Otros Gastos', tipo: 'gasto' },
 ];
 
-const defaultConfig: Config = {
+export const defaultConfig: Config = {
   nombreAcademia: 'Club Retadoras',
   tasaBCV: 50.0,
   fechaTasaBCV: new Date().toISOString(),
@@ -34,177 +41,216 @@ const defaultConfig: Config = {
 // ─── Store Interface ──────────────────────────────────────────────────────────
 
 interface AppState {
-  // Entities
+  // Data — populated by Firestore listeners in useFirestoreSync
   atletas: Atleta[];
   pagos: Pago[];
   movimientos: Movimiento[];
   categoriasMovimientos: CategoriaMovimiento[];
   config: Config;
 
-  // ── Atletas ──────────────────────────────────────────────────────────────
-  addAtleta: (atleta: Omit<Atleta, 'id'>) => void;
-  updateAtleta: (id: string, data: Partial<Atleta>) => void;
-  toggleAtletaActiva: (id: string) => void;
-  deleteAtleta: (id: string) => void;
+  // UI state
+  dataLoading: boolean;   // initial Firestore snapshot not yet received
+  isSubmitting: boolean;  // any write operation in progress (prevents double submit)
 
-  // ── Pagos ─────────────────────────────────────────────────────────────────
-  addPago: (pago: Omit<Pago, 'id'>) => void;
-  updatePago: (id: string, data: Partial<Pago>) => void;
-  deletePago: (id: string) => void;
+  // Internal setter used by the sync hook (not exposed to UI)
+  _setData: (partial: Partial<Pick<AppState, 'atletas' | 'pagos' | 'movimientos' | 'categoriasMovimientos' | 'config' | 'dataLoading'>>) => void;
 
-  // ── Movimientos ───────────────────────────────────────────────────────────
-  addMovimiento: (mov: Omit<Movimiento, 'id'>) => void;
-  updateMovimiento: (id: string, data: Partial<Movimiento>) => void;
-  deleteMovimiento: (id: string) => void;
+  // ── Atletas ────────────────────────────────────────────────────────────────
+  addAtleta: (atleta: Omit<Atleta, 'id'>) => Promise<void>;
+  updateAtleta: (id: string, data: Partial<Atleta>) => Promise<void>;
+  toggleAtletaActiva: (id: string) => Promise<void>;
+  deleteAtleta: (id: string) => Promise<void>;
 
-  // ── Categorías ────────────────────────────────────────────────────────────
-  addCategoria: (cat: Omit<CategoriaMovimiento, 'id'>) => void;
-  deleteCategoria: (id: string) => void;
+  // ── Pagos ──────────────────────────────────────────────────────────────────
+  addPago: (pago: Omit<Pago, 'id'>) => Promise<void>;
+  updatePago: (id: string, data: Partial<Pago>) => Promise<void>;
+  deletePago: (id: string) => Promise<void>;
 
-  // ── Config ────────────────────────────────────────────────────────────────
-  updateConfig: (data: Partial<Config>) => void;
-  actualizarTasa: (tasa: number) => void;
+  // ── Movimientos ────────────────────────────────────────────────────────────
+  addMovimiento: (mov: Omit<Movimiento, 'id'>) => Promise<void>;
+  updateMovimiento: (id: string, data: Partial<Movimiento>) => Promise<void>;
+  deleteMovimiento: (id: string) => Promise<void>;
 
-  // ── Import / Export ───────────────────────────────────────────────────────
+  // ── Categorías ─────────────────────────────────────────────────────────────
+  addCategoria: (cat: Omit<CategoriaMovimiento, 'id'>) => Promise<void>;
+  deleteCategoria: (id: string) => Promise<void>;
+
+  // ── Config ─────────────────────────────────────────────────────────────────
+  updateConfig: (data: Partial<Config>) => Promise<void>;
+  actualizarTasa: (tasa: number) => Promise<void>;
+
+  // ── Import / Export ────────────────────────────────────────────────────────
   exportData: () => string;
-  importData: (json: string) => void;
+  importData: (json: string) => Promise<void>;
 }
 
-// ─── ID Generator ─────────────────────────────────────────────────────────────
+// ─── Helper: guard against concurrent submits ─────────────────────────────────
 
-function genId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+function withSubmit<T extends unknown[]>(
+  set: (fn: (s: AppState) => Partial<AppState>) => void,
+  get: () => AppState,
+  fn: (...args: T) => Promise<void>
+) {
+  return async (...args: T) => {
+    if (get().isSubmitting) return; // prevent double submit
+    set(() => ({ isSubmitting: true }));
+    try {
+      await fn(...args);
+    } finally {
+      set(() => ({ isSubmitting: false }));
+    }
+  };
 }
+
+// ─── Firestore collection refs ────────────────────────────────────────────────
+
+const col = (name: string) => collection(db, name);
+const docRef = (name: string, id: string) => doc(db, name, id);
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-      atletas: [],
-      pagos: [],
-      movimientos: [],
-      categoriasMovimientos: [
-        ...defaultCategoriasIngreso,
-        ...defaultCategoriasGasto,
-      ],
-      config: defaultConfig,
+export const useStore = create<AppState>((set, get) => ({
+  atletas: [],
+  pagos: [],
+  movimientos: [],
+  categoriasMovimientos: [],
+  config: defaultConfig,
+  dataLoading: true,
+  isSubmitting: false,
 
-      // ── Atletas ──────────────────────────────────────────────────────────
-      addAtleta: (data) =>
-        set((s) => ({
-          atletas: [...s.atletas, { id: genId(), ...data }],
-        })),
+  _setData: (partial) => set(partial),
 
-      updateAtleta: (id, data) =>
-        set((s) => ({
-          atletas: s.atletas.map((a) => (a.id === id ? { ...a, ...data } : a)),
-        })),
+  // ── Atletas ────────────────────────────────────────────────────────────────
 
-      toggleAtletaActiva: (id) =>
-        set((s) => ({
-          atletas: s.atletas.map((a) =>
-            a.id === id ? { ...a, activa: !a.activa } : a
-          ),
-        })),
+  addAtleta: withSubmit(set, get, async (data: Omit<Atleta, 'id'>) => {
+    await addDoc(col('atletas'), data);
+  }),
 
-      deleteAtleta: (id) =>
-        set((s) => ({
-          atletas: s.atletas.filter((a) => a.id !== id),
-          pagos: s.pagos.filter((p) => p.atletaId !== id),
-        })),
+  updateAtleta: withSubmit(set, get, async (id: string, data: Partial<Atleta>) => {
+    await updateDoc(docRef('atletas', id), data as Record<string, unknown>);
+  }),
 
-      // ── Pagos ─────────────────────────────────────────────────────────────
-      addPago: (data) =>
-        set((s) => ({
-          pagos: [...s.pagos, { id: genId(), ...data }],
-        })),
+  toggleAtletaActiva: withSubmit(set, get, async (id: string) => {
+    const current = get().atletas.find(a => a.id === id);
+    if (!current) return;
+    await updateDoc(docRef('atletas', id), { activa: !current.activa });
+  }),
 
-      updatePago: (id, data) =>
-        set((s) => ({
-          pagos: s.pagos.map((p) => (p.id === id ? { ...p, ...data } : p)),
-        })),
+  deleteAtleta: withSubmit(set, get, async (id: string) => {
+    await deleteDoc(docRef('atletas', id));
+    // Also delete all payments for this athlete
+    const pagosAtleta = get().pagos.filter(p => p.atletaId === id);
+    await Promise.all(pagosAtleta.map(p => deleteDoc(docRef('pagos', p.id))));
+  }),
 
-      deletePago: (id) =>
-        set((s) => ({ pagos: s.pagos.filter((p) => p.id !== id) })),
+  // ── Pagos ──────────────────────────────────────────────────────────────────
 
-      // ── Movimientos ───────────────────────────────────────────────────────
-      addMovimiento: (data) =>
-        set((s) => ({
-          movimientos: [...s.movimientos, { id: genId(), ...data }],
-        })),
+  addPago: withSubmit(set, get, async (data: Omit<Pago, 'id'>) => {
+    await addDoc(col('pagos'), data);
+  }),
 
-      updateMovimiento: (id, data) =>
-        set((s) => ({
-          movimientos: s.movimientos.map((m) =>
-            m.id === id ? { ...m, ...data } : m
-          ),
-        })),
+  updatePago: withSubmit(set, get, async (id: string, data: Partial<Pago>) => {
+    await updateDoc(docRef('pagos', id), data as Record<string, unknown>);
+  }),
 
-      deleteMovimiento: (id) =>
-        set((s) => ({
-          movimientos: s.movimientos.filter((m) => m.id !== id),
-        })),
+  deletePago: withSubmit(set, get, async (id: string) => {
+    await deleteDoc(docRef('pagos', id));
+  }),
 
-      // ── Categorías ────────────────────────────────────────────────────────
-      addCategoria: (data) =>
-        set((s) => ({
-          categoriasMovimientos: [
-            ...s.categoriasMovimientos,
-            { id: genId(), ...data },
-          ],
-        })),
+  // ── Movimientos ────────────────────────────────────────────────────────────
 
-      deleteCategoria: (id) =>
-        set((s) => ({
-          categoriasMovimientos: s.categoriasMovimientos.filter(
-            (c) => c.id !== id
-          ),
-        })),
+  addMovimiento: withSubmit(set, get, async (data: Omit<Movimiento, 'id'>) => {
+    await addDoc(col('movimientos'), data);
+  }),
 
-      // ── Config ────────────────────────────────────────────────────────────
-      updateConfig: (data) =>
-        set((s) => ({ config: { ...s.config, ...data } })),
+  updateMovimiento: withSubmit(set, get, async (id: string, data: Partial<Movimiento>) => {
+    await updateDoc(docRef('movimientos', id), data as Record<string, unknown>);
+  }),
 
-      actualizarTasa: (tasa) =>
-        set((s) => ({
-          config: {
-            ...s.config,
-            tasaBCV: tasa,
-            fechaTasaBCV: new Date().toISOString(),
-          },
-        })),
+  deleteMovimiento: withSubmit(set, get, async (id: string) => {
+    await deleteDoc(docRef('movimientos', id));
+  }),
 
-      // ── Import / Export ───────────────────────────────────────────────────
-      exportData: () => {
-        const { atletas, pagos, movimientos, categoriasMovimientos, config } = get();
-        return JSON.stringify(
-          { atletas, pagos, movimientos, categoriasMovimientos, config, exportedAt: new Date().toISOString() },
-          null,
-          2
-        );
-      },
+  // ── Categorías ─────────────────────────────────────────────────────────────
 
-      importData: (json) => {
-        try {
-          const data = JSON.parse(json);
-          set({
-            atletas: data.atletas ?? [],
-            pagos: data.pagos ?? [],
-            movimientos: data.movimientos ?? [],
-            categoriasMovimientos: data.categoriasMovimientos ?? [
-              ...defaultCategoriasIngreso,
-              ...defaultCategoriasGasto,
-            ],
-            config: data.config ?? defaultConfig,
-          });
-        } catch {
-          throw new Error('Archivo de datos inválido');
-        }
-      },
-    }),
-    {
-      name: 'academia-spike-data',
-    }
-  )
-);
+  addCategoria: withSubmit(set, get, async (data: Omit<CategoriaMovimiento, 'id'>) => {
+    await addDoc(col('categorias'), data);
+  }),
+
+  deleteCategoria: withSubmit(set, get, async (id: string) => {
+    await deleteDoc(docRef('categorias', id));
+  }),
+
+  // ── Config ─────────────────────────────────────────────────────────────────
+
+  updateConfig: withSubmit(set, get, async (data: Partial<Config>) => {
+    const merged = { ...get().config, ...data };
+    await setDoc(docRef('config', 'main'), merged);
+  }),
+
+  actualizarTasa: withSubmit(set, get, async (tasa: number) => {
+    const merged = {
+      ...get().config,
+      tasaBCV: tasa,
+      fechaTasaBCV: new Date().toISOString(),
+    };
+    await setDoc(docRef('config', 'main'), merged);
+  }),
+
+  // ── Import / Export ────────────────────────────────────────────────────────
+
+  exportData: () => {
+    const { atletas, pagos, movimientos, categoriasMovimientos, config } = get();
+    return JSON.stringify(
+      { atletas, pagos, movimientos, categoriasMovimientos, config, exportedAt: new Date().toISOString() },
+      null,
+      2
+    );
+  },
+
+  importData: withSubmit(set, get, async (json: string) => {
+    const data = JSON.parse(json);
+
+    const atletas: Atleta[] = data.atletas ?? [];
+    const pagos: Pago[] = data.pagos ?? [];
+    const movimientos: Movimiento[] = data.movimientos ?? [];
+    const categorias: CategoriaMovimiento[] = data.categoriasMovimientos ?? [
+      ...defaultCategoriasIngreso,
+      ...defaultCategoriasGasto,
+    ];
+    const config: Config = data.config ?? defaultConfig;
+
+    // Write everything to Firestore in parallel
+    await Promise.all([
+      ...atletas.map(a => setDoc(docRef('atletas', a.id), a)),
+      ...pagos.map(p => setDoc(docRef('pagos', p.id), p)),
+      ...movimientos.map(m => setDoc(docRef('movimientos', m.id), m)),
+      ...categorias.map(c => setDoc(docRef('categorias', c.id), c)),
+      setDoc(docRef('config', 'main'), config),
+    ]);
+  }),
+
+  // ── Seed default categories if Firestore is empty ─────────────────────────
+  // Called from useFirestoreSync after first snapshot
+}));
+
+/**
+ * Seeds Firestore with default categories and config if they are missing.
+ * Safe to call multiple times — checks for existence first.
+ */
+export async function seedDefaultsIfEmpty() {
+  const configSnap = await getDoc(docRef('config', 'main'));
+  if (!configSnap.exists()) {
+    await setDoc(docRef('config', 'main'), defaultConfig);
+  }
+
+  const allDefaults = [...defaultCategoriasIngreso, ...defaultCategoriasGasto];
+  await Promise.all(
+    allDefaults.map(async (cat) => {
+      const snap = await getDoc(docRef('categorias', cat.id));
+      if (!snap.exists()) {
+        await setDoc(docRef('categorias', cat.id), cat);
+      }
+    })
+  );
+}

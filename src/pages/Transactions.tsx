@@ -34,7 +34,7 @@ const emptyForm = (): MovForm => ({
 });
 
 export function Transactions() {
-  const { movimientos, categoriasMovimientos, addMovimiento, deleteMovimiento } = useStore();
+  const { movimientos, categoriasMovimientos, addMovimiento, deleteMovimiento, isSubmitting } = useStore();
   const { tasa } = useExchangeRate();
   const { toasts, addToast, removeToast } = useToast();
 
@@ -93,8 +93,9 @@ export function Transactions() {
     return Object.keys(errs).length === 0;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!validate()) return;
+    if (isSubmitting) return;
     const v = parseFloat(form.montoInput);
     const montoBs = form.moneda === 'usd' ? usdToBs(v, tasa) : v;
     const montoDolar = form.moneda === 'usd' ? v : undefined;
@@ -103,7 +104,7 @@ export function Transactions() {
     if (form.moneda === 'usd') metodoPago = 'efectivo_usd';
     if (form.moneda === 'bs' && form.metodoPago === 'efectivo_usd') metodoPago = 'efectivo_bs';
 
-    addMovimiento({
+    await addMovimiento({
       tipo: form.tipo,
       categoriaId: form.categoriaId,
       descripcion: form.descripcion,

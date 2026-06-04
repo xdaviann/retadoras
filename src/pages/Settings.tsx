@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store/useStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { useToast } from '../hooks/useToast';
 import { formatRelativa } from '../utils/format';
 import { ToastContainer } from '../components/ui/Toast';
@@ -8,7 +9,8 @@ import { RefreshIcon, DownloadIcon, UploadIcon, PlusIcon, TrashIcon } from '../c
 import type { TipoMovimiento } from '../types';
 
 export function Settings() {
-  const { config, updateConfig, actualizarTasa, categoriasMovimientos, addCategoria, deleteCategoria, exportData, importData } = useStore();
+  const { config, updateConfig, actualizarTasa, categoriasMovimientos, addCategoria, deleteCategoria, exportData, importData, isSubmitting } = useStore();
+  const { logout, user } = useAuthStore();
   const { toasts, addToast, removeToast } = useToast();
 
   // Exchange rate
@@ -43,7 +45,7 @@ export function Settings() {
       if (!tasa || isNaN(Number(tasa))) throw new Error('Formato inesperado');
       const t = Number(tasa);
       setTasaInput(t.toFixed(2));
-      actualizarTasa(t);
+      await actualizarTasa(t);
       addToast(`Tasa actualizada: ${t.toFixed(2)} Bs/$`);
     } catch (err) {
       addToast('No se pudo obtener la tasa. Ingrésala manualmente.', 'error');
@@ -52,28 +54,28 @@ export function Settings() {
     }
   }
 
-  function handleSaveTasa() {
+  async function handleSaveTasa() {
     const t = parseFloat(tasaInput);
     if (isNaN(t) || t <= 0) { addToast('Ingresa una tasa válida', 'error'); return; }
-    actualizarTasa(t);
+    await actualizarTasa(t);
     addToast('Tasa actualizada correctamente');
   }
 
   // ── Config ─────────────────────────────────────────────────────────────────
 
-  function handleSaveConfig() {
+  async function handleSaveConfig() {
     const m = parseFloat(mensualidadInput);
     if (!nombreInput.trim()) { addToast('El nombre no puede estar vacío', 'error'); return; }
     if (isNaN(m) || m <= 0) { addToast('Ingresa una mensualidad válida', 'error'); return; }
-    updateConfig({ nombreAcademia: nombreInput.trim(), mensualidadBase: m });
+    await updateConfig({ nombreAcademia: nombreInput.trim(), mensualidadBase: m });
     addToast('Configuración guardada');
   }
 
   // ── Categories ─────────────────────────────────────────────────────────────
 
-  function handleAddCategoria() {
+  async function handleAddCategoria() {
     if (!catForm.nombre.trim()) { setCatError('Ingresa un nombre'); return; }
-    addCategoria({ nombre: catForm.nombre.trim(), tipo: catForm.tipo });
+    await addCategoria({ nombre: catForm.nombre.trim(), tipo: catForm.tipo });
     addToast('Categoría agregada');
     setShowCatModal(false);
     setCatForm({ nombre: '', tipo: 'ingreso' });
@@ -107,10 +109,10 @@ export function Settings() {
     e.target.value = '';
   }
 
-  function handleImportConfirm() {
+  async function handleImportConfirm() {
     if (!pendingFile) return;
     try {
-      importData(pendingFile);
+      await importData(pendingFile);
       addToast('Datos importados correctamente');
     } catch {
       addToast('Error al importar el archivo', 'error');
@@ -257,7 +259,7 @@ export function Settings() {
             <span className="card-title">Respaldo de datos</span>
           </div>
           <p style={{ fontSize: '0.85rem', marginBottom: 'var(--sp-4)' }}>
-            Los datos se guardan en el navegador (LocalStorage). Exporta un respaldo regularmente.
+            Los datos se guardan en <strong>Firebase Firestore</strong>. Exporta un respaldo regularmente.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
             <button className="btn btn-ghost" onClick={handleExport} id="btn-export">
@@ -279,6 +281,24 @@ export function Settings() {
               ⚠ Importar datos reemplaza toda la información actual.
             </p>
           </div>
+        </div>
+
+        {/* Account */}
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Cuenta de administrador</span>
+          </div>
+          <p style={{ fontSize: '0.85rem', marginBottom: 'var(--sp-4)' }}>
+            Sesión activa como <strong>{user?.email}</strong>
+          </p>
+          <button
+            className="btn btn-danger"
+            onClick={logout}
+            disabled={isSubmitting}
+            style={{ width: '100%', justifyContent: 'center' }}
+          >
+            Cerrar sesión
+          </button>
         </div>
 
       </div>

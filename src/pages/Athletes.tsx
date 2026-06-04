@@ -24,7 +24,7 @@ const emptyForm = (): AtletaForm => ({
 });
 
 export function Athletes() {
-  const { atletas, pagos, addAtleta, updateAtleta, toggleAtletaActiva, deleteAtleta } = useStore();
+  const { atletas, pagos, addAtleta, updateAtleta, toggleAtletaActiva, deleteAtleta, isSubmitting } = useStore();
   const { toasts, addToast, removeToast } = useToast();
   const { mes, anio } = getCurrentMonthYear();
 
@@ -86,13 +86,14 @@ export function Athletes() {
     return Object.keys(errs).length === 0;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!validate()) return;
+    if (isSubmitting) return;
     if (editId) {
-      updateAtleta(editId, form);
+      await updateAtleta(editId, form);
       addToast('Atleta actualizada correctamente');
     } else {
-      addAtleta({ ...form, activa: true, fechaIngreso: new Date().toISOString() });
+      await addAtleta({ ...form, activa: true, fechaIngreso: new Date().toISOString() });
       addToast('Atleta registrada correctamente');
     }
     closeModal();
@@ -128,8 +129,8 @@ export function Athletes() {
     setFormErrors({});
   }
 
-  function handleDelete(id: string) {
-    deleteAtleta(id);
+  async function handleDelete(id: string) {
+    await deleteAtleta(id);
     setConfirmDelete(null);
     addToast('Atleta eliminada', 'error');
   }

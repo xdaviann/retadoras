@@ -35,7 +35,7 @@ const emptyForm = (): PaymentForm => ({
 });
 
 export function Payments() {
-  const { atletas, pagos, config, addPago, deletePago } = useStore();
+  const { atletas, pagos, config, addPago, deletePago, isSubmitting } = useStore();
   const { tasa } = useExchangeRate();
   const { toasts, addToast, removeToast } = useToast();
   const { mes, anio } = getCurrentMonthYear();
@@ -138,8 +138,9 @@ export function Payments() {
     return Object.keys(errs).length === 0;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!validate()) return;
+    if (isSubmitting) return;
     
     let montoBs = 0;
     let montoDolar: number | undefined = undefined;
@@ -159,7 +160,7 @@ export function Payments() {
       if (form.moneda === 'bs' && form.metodoPago === 'efectivo_usd') metodoPago = 'efectivo_bs';
     }
 
-    form.mesesSeleccionados.forEach(m => {
+    await Promise.all(form.mesesSeleccionados.map(m =>
       addPago({
         atletaId: form.atletaId,
         mes: m.mes,
@@ -171,8 +172,8 @@ export function Payments() {
         tasaCambio: tasa,
         fecha: new Date().toISOString(),
         notas: form.notas || undefined,
-      });
-    });
+      })
+    ));
 
     addToast(`Pago${qty > 1 ? 's' : ''} registrado${qty > 1 ? 's' : ''} correctamente`);
     setShowModal(false);
@@ -353,7 +354,7 @@ export function Payments() {
           footer={
             <>
               <button className="btn btn-ghost" onClick={() => { setShowModal(false); setFormErrors({}); }}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleSubmit} id="btn-save-payment">Registrar pago</button>
+              <button className="btn btn-primary" onClick={handleSubmit} id="btn-save-payment" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Registrar pago'}</button>
             </>
           }
         >
@@ -516,7 +517,7 @@ export function Payments() {
           footer={
             <>
               <button className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>Cancelar</button>
-              <button className="btn btn-danger" onClick={() => { deletePago(confirmDelete); setConfirmDelete(null); addToast('Pago eliminado', 'error'); }}>
+              <button className="btn btn-danger" disabled={isSubmitting} onClick={async () => { await deletePago(confirmDelete!); setConfirmDelete(null); addToast('Pago eliminado', 'error'); }}>
                 Eliminar pago
               </button>
             </>
