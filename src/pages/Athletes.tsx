@@ -334,7 +334,7 @@ export function Athletes() {
                 <th style={{ textAlign: "right" }}>Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="stagger-list">
               {filtered.map((atleta) => {
                 const deuda = getDeuda(atleta);
                 return (

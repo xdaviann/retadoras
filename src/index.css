@@ -69,10 +69,11 @@
   --z-toast:    500;
 
   /* Transitions */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --t-fast: 120ms;
-  --t-base: 200ms;
-  --t-slow: 350ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --t-fast: 150ms;
+  --t-base: 250ms;
+  --t-slow: 400ms;
 }
 
 /* ─── Reset & Base ────────────────────────────────────────────────────────── */
@@ -215,7 +216,7 @@ a:hover { color: var(--accent-dim); }
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--t-fast) var(--ease-out);
+  transition: color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
   border: none;
   background: none;
   width: 100%;
@@ -426,7 +427,7 @@ a:hover { color: var(--accent-dim); }
   font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: all var(--t-fast) var(--ease-out);
+  transition: transform 160ms var(--ease-out), background 160ms var(--ease-out), border-color 160ms var(--ease-out), color 160ms var(--ease-out);
   white-space: nowrap;
   text-decoration: none;
 }
@@ -434,6 +435,10 @@ a:hover { color: var(--accent-dim); }
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .btn svg { width: 16px; height: 16px; }
@@ -577,11 +582,8 @@ a:hover { color: var(--accent-dim); }
   max-height: 90dvh;
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
-  animation: slideUp var(--t-slow) var(--ease-out);
-}
-
-@media (min-width: 640px) {
-  .modal { border-radius: var(--r-xl); animation: scaleIn var(--t-base) var(--ease-out); }
+  animation: scaleIn var(--t-base) var(--ease-out);
+  transform-origin: center;
 }
 
 .modal-header {
@@ -781,8 +783,8 @@ tbody tr:hover { background: var(--bg-hover); }
   to   { opacity: 1; }
 }
 
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
+@keyframes toastEnter {
+  from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
 }
 
@@ -790,6 +792,24 @@ tbody tr:hover { background: var(--bg-hover); }
   from { transform: scale(0.95); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
 }
+
+@keyframes staggerFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.stagger-list > * {
+  opacity: 0;
+  animation: staggerFade var(--t-base) var(--ease-out) forwards;
+}
+
+.stagger-list > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-list > *:nth-child(2) { animation-delay: 40ms; }
+.stagger-list > *:nth-child(3) { animation-delay: 80ms; }
+.stagger-list > *:nth-child(4) { animation-delay: 120ms; }
+.stagger-list > *:nth-child(5) { animation-delay: 160ms; }
+.stagger-list > *:nth-child(6) { animation-delay: 200ms; }
+.stagger-list > *:nth-child(n+7) { animation-delay: 240ms; }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
@@ -1019,7 +1039,7 @@ tbody tr:hover { background: var(--bg-hover); }
   align-items: center;
   gap: var(--sp-3);
   font-size: 0.875rem;
-  animation: slideUp var(--t-base) var(--ease-out);
+  animation: toastEnter var(--t-base) var(--ease-out);
 }
 
 .toast.success { border-left: 3px solid var(--accent); }

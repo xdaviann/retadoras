@@ -229,7 +229,7 @@ export function Transactions() {
                 <th style={{ textAlign: 'right' }}>Acc.</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="stagger-list">
               {filtered
                 .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
                 .map((mov) => {

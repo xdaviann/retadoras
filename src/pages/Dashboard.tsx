@@ -181,7 +181,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <p style={{ textAlign: 'center' }}>Todas las atletas están al día</p>
             </div>
           ) : (
-            <div className="pending-list">
+            <div className="pending-list stagger-list">
               {stats.atletasPendientes.slice(0, 6).map((atleta) => (
                 <div key={atleta.id} className="pending-item">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
