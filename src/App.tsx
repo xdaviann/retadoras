@@ -8,6 +8,7 @@ import { Transactions } from './pages/Transactions';
 import { Settings } from './pages/Settings';
 import { useStore } from './store/useStore';
 import { MenuIcon, VolleyballIcon } from './components/ui/Icons';
+import logoUrl from './assets/logo-retadoras.png';
 
 type Page = 'dashboard' | 'athletes' | 'payments' | 'transactions' | 'settings';
 
@@ -66,7 +67,7 @@ export default function App() {
 
             {/* Mobile logo */}
             <div style={{ display: 'none' }} id="mobile-logo">
-              <img src="/logo-retadoras.png" alt="Logo" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+              <img src={logoUrl} alt="Logo" style={{ width: 20, height: 20, objectFit: 'contain' }} />
             </div>
 
             <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>

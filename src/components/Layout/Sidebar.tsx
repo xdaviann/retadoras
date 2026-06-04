@@ -5,6 +5,7 @@ import {
   VolleyballIcon, HomeIcon, UsersIcon, CreditCardIcon,
   TrendingIcon, SettingsIcon, RefreshIcon,
 } from '../ui/Icons';
+import logoUrl from '../../assets/logo-retadoras.png';
 
 type Page = 'dashboard' | 'athletes' | 'payments' | 'transactions' | 'settings';
 
@@ -31,7 +32,7 @@ export function Sidebar({ currentPage, onNavigate, open, onClose }: SidebarProps
     <aside className={`sidebar${open ? ' open' : ''}`}>
       {/* Brand */}
       <div className="sidebar-brand">
-        <img src="/logo-retadoras.png" alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+        <img src={logoUrl} alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain' }} />
         <div>
           <div className="sidebar-brand-name">{config.nombreAcademia}</div>
           <div className="sidebar-brand-sub">Finanzas</div>
