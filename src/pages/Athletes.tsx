@@ -10,7 +10,10 @@ import type { Atleta, Categoria } from '../types';
 
 const CATEGORIAS: Categoria[] = ['Grupo A', 'Grupo B'];
 
-type AtletaForm = Omit<Atleta, 'id' | 'activa' | 'fechaIngreso'>;
+type AtletaForm = Omit<Atleta, 'id' | 'activa' | 'fechaIngreso' | 'telefono' | 'email'> & {
+  prefijoTelefono: string;
+  numeroTelefono: string;
+};
 
 const emptyForm = (): AtletaForm => ({
   nombre: '',
@@ -18,8 +21,8 @@ const emptyForm = (): AtletaForm => ({
   cedula: '',
   fechaNacimiento: '',
   categoria: 'Grupo A',
-  telefono: '',
-  email: '',
+  prefijoTelefono: '0412',
+  numeroTelefono: '',
   notas: '',
 });
 
@@ -82,6 +85,9 @@ export function Athletes() {
     if (!form.apellido.trim()) errs.apellido = 'El apellido es requerido';
     if (!form.cedula.trim()) errs.cedula = 'La cédula es requerida';
     if (!form.fechaNacimiento) errs.fechaNacimiento = 'La fecha de nacimiento es requerida';
+    if (form.numeroTelefono && form.numeroTelefono.length !== 7) {
+      errs.numeroTelefono = 'El número debe tener 7 dígitos';
+    }
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -89,11 +95,21 @@ export function Athletes() {
   async function handleSubmit() {
     if (!validate()) return;
     if (isSubmitting) return;
+    const dataToSave = {
+      nombre: form.nombre,
+      apellido: form.apellido,
+      cedula: form.cedula,
+      fechaNacimiento: form.fechaNacimiento,
+      categoria: form.categoria,
+      notas: form.notas,
+      telefono: form.numeroTelefono ? `${form.prefijoTelefono}-${form.numeroTelefono}` : '',
+    };
+
     if (editId) {
-      await updateAtleta(editId, form);
+      await updateAtleta(editId, dataToSave);
       addToast('Atleta actualizada correctamente');
     } else {
-      await addAtleta({ ...form, activa: true, fechaIngreso: new Date().toISOString() });
+      await addAtleta({ ...dataToSave, activa: true, fechaIngreso: new Date().toISOString() });
       addToast('Atleta registrada correctamente');
     }
     closeModal();
@@ -108,14 +124,27 @@ export function Athletes() {
 
   function openEdit(atleta: Atleta) {
     setEditId(atleta.id);
+    let prefijoTelefono = '0412';
+    let numeroTelefono = '';
+    if (atleta.telefono) {
+      if (atleta.telefono.includes('-')) {
+        [prefijoTelefono, numeroTelefono] = atleta.telefono.split('-');
+      } else if (atleta.telefono.length >= 4) {
+        prefijoTelefono = atleta.telefono.substring(0, 4);
+        numeroTelefono = atleta.telefono.substring(4);
+      } else {
+        numeroTelefono = atleta.telefono;
+      }
+    }
+
     setForm({
       nombre: atleta.nombre,
       apellido: atleta.apellido,
       cedula: atleta.cedula,
       fechaNacimiento: atleta.fechaNacimiento,
       categoria: atleta.categoria,
-      telefono: atleta.telefono,
-      email: atleta.email ?? '',
+      prefijoTelefono,
+      numeroTelefono,
       notas: atleta.notas ?? '',
     });
     setFormErrors({});
@@ -215,9 +244,6 @@ export function Athletes() {
                         </div>
                         <div>
                           <div style={{ fontWeight: 600 }}>{atleta.nombre} {atleta.apellido}</div>
-                          {atleta.email && (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>{atleta.email}</div>
-                          )}
                         </div>
                       </div>
                     </td>
@@ -227,7 +253,9 @@ export function Athletes() {
                         {atleta.categoria}
                       </span>
                     </td>
-                    <td data-label="Teléfono" style={{ color: 'var(--ink-secondary)' }}>{atleta.telefono}</td>
+                    <td data-label="Teléfono" style={{ color: 'var(--ink-secondary)' }}>
+                      {atleta.telefono ? (atleta.telefono.includes('-') ? atleta.telefono : `${atleta.telefono.substring(0, 4)}-${atleta.telefono.substring(4)}`) : ''}
+                    </td>
                     <td data-label="Deuda">
                       {atleta.activa ? (
                         <span className={`badge ${deuda === 0 ? 'badge-green' : deuda === 1 ? 'badge-yellow' : 'badge-red'}`}>
@@ -324,18 +352,31 @@ export function Athletes() {
           <div className="form-grid">
             <div className="form-group">
               <label className="form-label" htmlFor="telefono">Teléfono</label>
-              <input id="telefono" className="form-input" value={form.telefono} onChange={f('telefono')} placeholder="0414-1234567" />
+              <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+                <select id="prefijo" className="form-select" value={form.prefijoTelefono} onChange={f('prefijoTelefono')} style={{ width: '100px' }}>
+                  {['0412', '0422', '0414', '0424', '0416', '0426'].map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <input
+                  id="telefono"
+                  className="form-input"
+                  value={form.numeroTelefono}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 7);
+                    setForm(prev => ({ ...prev, numeroTelefono: val }));
+                    if (formErrors.numeroTelefono) setFormErrors(prev => ({ ...prev, numeroTelefono: undefined }));
+                  }}
+                  placeholder="1234567"
+                  style={{ flex: 1 }}
+                />
+              </div>
+              {formErrors.numeroTelefono && <span className="form-error">{formErrors.numeroTelefono}</span>}
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="email">Email</label>
-              <input id="email" type="email" className="form-input" value={form.email} onChange={f('email')} placeholder="maria@email.com" />
+              <label className="form-label" htmlFor="categoria">Categoría *</label>
+              <select id="categoria" className="form-select" value={form.categoria} onChange={f('categoria')}>
+                {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="categoria">Categoría *</label>
-            <select id="categoria" className="form-select" value={form.categoria} onChange={f('categoria')}>
-              {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
           </div>
           <div className="form-group">
             <label className="form-label" htmlFor="notas">Notas</label>
