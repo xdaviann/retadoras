@@ -873,7 +873,7 @@ tbody tr:hover { background: var(--bg-hover); }
   
   tbody td {
     border: none;
-    padding: var(--sp-1.5) 0;
+    padding: var(--sp-2) 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
