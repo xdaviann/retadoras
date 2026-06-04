@@ -182,7 +182,7 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Categorías ─────────────────────────────────────────────────────────────
 
   addCategoria: withSubmit(set, get, async (data: Omit<CategoriaMovimiento, 'id'>) => {
-    await addDoc(col('categoriasMovimientos'), clean(data));
+    await addDoc(col('categorias'), clean(data));
   }),
 
   deleteCategoria: withSubmit(set, get, async (id: string) => {
