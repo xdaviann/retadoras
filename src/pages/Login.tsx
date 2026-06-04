@@ -2,12 +2,9 @@ import { useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import logoUrl from '../assets/logo-retadoras.png';
 
-type Mode = 'login' | 'register';
-
 export function Login() {
-  const { login, register, isSubmitting } = useAuthStore();
+  const { login, isSubmitting } = useAuthStore();
 
-  const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,15 +19,7 @@ export function Login() {
     }
 
     try {
-      if (mode === 'login') {
-        await login(email.trim(), password);
-      } else {
-        if (password.length < 6) {
-          setError('La contraseña debe tener al menos 6 caracteres.');
-          return;
-        }
-        await register(email.trim(), password);
-      }
+      await login(email.trim(), password);
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? '';
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
@@ -95,36 +84,6 @@ export function Login() {
           </div>
         </div>
 
-        {/* Mode toggle */}
-        <div style={{
-          display: 'flex',
-          background: 'var(--bg-elevated)',
-          borderRadius: 'var(--r-md)',
-          padding: 4,
-          marginBottom: 'var(--sp-5)',
-          gap: 4,
-        }}>
-          {(['login', 'register'] as Mode[]).map(m => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => { setMode(m); setError(''); }}
-              style={{
-                flex: 1,
-                padding: 'var(--sp-2)',
-                borderRadius: 'calc(var(--r-md) - 2px)',
-                border: 'none',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: mode === m ? 'var(--accent)' : 'transparent',
-                color: mode === m ? 'var(--bg-base)' : 'var(--ink-muted)',
-              }}
-            >
-              {m === 'login' ? 'Iniciar sesión' : 'Registrarse'}
-            </button>
-          ))}
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
@@ -150,8 +109,8 @@ export function Login() {
               className="form-input"
               value={password}
               onChange={e => { setPassword(e.target.value); setError(''); }}
-              placeholder={mode === 'register' ? 'Mínimo 6 caracteres' : '••••••••'}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              placeholder="••••••••"
+              autoComplete="current-password"
               disabled={isSubmitting}
             />
           </div>
@@ -176,19 +135,9 @@ export function Login() {
             disabled={isSubmitting}
             style={{ width: '100%', justifyContent: 'center', marginTop: 'var(--sp-2)' }}
           >
-            {isSubmitting
-              ? 'Procesando...'
-              : mode === 'login'
-                ? 'Iniciar sesión'
-                : 'Crear cuenta'}
+            {isSubmitting ? 'Procesando...' : 'Iniciar sesión'}
           </button>
         </form>
-
-        {mode === 'register' && (
-          <p style={{ marginTop: 'var(--sp-4)', fontSize: '0.78rem', color: 'var(--ink-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-            Solo el administrador del sistema debe crear una cuenta. Esta acción no puede deshacerse desde la app.
-          </p>
-        )}
       </div>
     </div>
   );
