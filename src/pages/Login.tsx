@@ -84,8 +84,6 @@ export function Login() {
           </div>
         </div>
 
-        </div>
-
         <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
             <label className="form-label" htmlFor="auth-email">Correo electrónico</label>
