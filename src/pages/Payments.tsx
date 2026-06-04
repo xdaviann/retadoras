@@ -177,15 +177,19 @@ export function Payments() {
         return payload;
       });
 
-      await addPagos(pagosToSave);
-
-      addToast(`Pago${qty > 1 ? 's' : ''} registrado${qty > 1 ? 's' : ''} correctamente`);
       setShowModal(false);
       setForm(emptyForm());
       setFormErrors({});
+
+      addPagos(pagosToSave)
+        .then(() => addToast(`Pago${qty > 1 ? 's' : ''} registrado${qty > 1 ? 's' : ''} correctamente`))
+        .catch((error) => {
+          console.error(error);
+          addToast('Ocurrió un error al registrar el pago', 'error');
+        });
     } catch (error) {
       console.error(error);
-      addToast('Ocurrió un error al registrar el pago', 'error');
+      addToast('Ocurrió un error al preparar el pago', 'error');
     }
   }
 

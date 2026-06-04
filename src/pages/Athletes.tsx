@@ -105,14 +105,16 @@ export function Athletes() {
       telefono: form.numeroTelefono ? `${form.prefijoTelefono}-${form.numeroTelefono}` : '',
     };
 
-    if (editId) {
-      await updateAtleta(editId, dataToSave);
-      addToast('Atleta actualizada correctamente');
-    } else {
-      await addAtleta({ ...dataToSave, activa: true, fechaIngreso: new Date().toISOString() });
-      addToast('Atleta registrada correctamente');
-    }
     closeModal();
+    if (editId) {
+      updateAtleta(editId, dataToSave)
+        .then(() => addToast('Atleta actualizada correctamente'))
+        .catch(err => { console.error(err); addToast('Error al actualizar', 'error'); });
+    } else {
+      addAtleta({ ...dataToSave, activa: true, fechaIngreso: new Date().toISOString() })
+        .then(() => addToast('Atleta registrada correctamente'))
+        .catch(err => { console.error(err); addToast('Error al registrar', 'error'); });
+    }
   }
 
   function openCreate() {

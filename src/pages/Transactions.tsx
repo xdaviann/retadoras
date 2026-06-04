@@ -104,7 +104,11 @@ export function Transactions() {
     if (form.moneda === 'usd') metodoPago = 'efectivo_usd';
     if (form.moneda === 'bs' && form.metodoPago === 'efectivo_usd') metodoPago = 'efectivo_bs';
 
-    await addMovimiento({
+    setShowModal(false);
+    setForm(emptyForm());
+    setFormErrors({});
+
+    addMovimiento({
       tipo: form.tipo,
       categoriaId: form.categoriaId,
       descripcion: form.descripcion,
@@ -116,11 +120,9 @@ export function Transactions() {
       tasaCambio: tasa,
       fecha: new Date(form.fecha + 'T12:00:00').toISOString(),
       notas: form.notas || undefined,
-    });
-    addToast(`${form.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} registrado correctamente`);
-    setShowModal(false);
-    setForm(emptyForm());
-    setFormErrors({});
+    })
+      .then(() => addToast(`${form.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} registrado correctamente`))
+      .catch((err) => { console.error(err); addToast('Error al registrar movimiento', 'error'); });
   }
 
   function openModal(tipo: TipoMovimiento = 'ingreso') {
