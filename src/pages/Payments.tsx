@@ -44,6 +44,8 @@ export function Payments() {
   const [form, setForm] = useState<PaymentForm>(emptyForm());
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof PaymentForm | 'mesesSeleccionados', string>>>({});
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [atletaSearch, setAtletaSearch] = useState('');
+  const [isAtletaDropdownOpen, setIsAtletaDropdownOpen] = useState(false);
 
   // Filters
   const [filterAtleta, setFilterAtleta] = useState('');
@@ -51,7 +53,7 @@ export function Payments() {
   const [filterAnio, setFilterAnio] = useState(anio);
   const [filterMetodo, setFilterMetodo] = useState<MetodoPago | 'todos'>('todos');
 
-  const atletasActivas = atletas.filter((a) => a.activa);
+  const atletasActivas = atletas.filter((a) => a.activa).sort((a, b) => a.nombre.localeCompare(b.nombre) || a.apellido.localeCompare(b.apellido));
 
   // Monto conversion preview
   const montoPreview = useMemo(() => {
@@ -373,12 +375,58 @@ export function Payments() {
           {/* Atleta */}
           <div className="form-group">
             <label className="form-label" htmlFor="pago-atleta">Atleta *</label>
-            <select id="pago-atleta" className="form-select" value={form.atletaId} onChange={f('atletaId')}>
-              <option value="">Seleccionar atleta...</option>
-              {atletasActivas.map((a) => (
-                <option key={a.id} value={a.id}>{a.nombre} {a.apellido} – {a.categoria}</option>
-              ))}
-            </select>
+            <div style={{ position: 'relative' }}>
+              <input
+                id="pago-atleta"
+                type="text"
+                className="form-input"
+                placeholder="Buscar atleta por nombre o cédula..."
+                value={form.atletaId ? (atletasActivas.find(a => a.id === form.atletaId)?.nombre + ' ' + atletasActivas.find(a => a.id === form.atletaId)?.apellido) : atletaSearch}
+                onChange={(e) => {
+                  setAtletaSearch(e.target.value);
+                  setIsAtletaDropdownOpen(true);
+                  if (form.atletaId) {
+                    setForm(prev => ({ ...prev, atletaId: '', mesesSeleccionados: [] }));
+                  }
+                  if (formErrors.atletaId) setFormErrors(prev => ({ ...prev, atletaId: undefined }));
+                }}
+                onFocus={() => setIsAtletaDropdownOpen(true)}
+              />
+              {isAtletaDropdownOpen && (
+                <>
+                  <div 
+                    style={{ position: 'fixed', inset: 0, zIndex: 9 }} 
+                    onClick={() => setIsAtletaDropdownOpen(false)} 
+                  />
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--r-md)', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 10, boxShadow: 'var(--shadow-lg)' }}>
+                    {atletasActivas
+                      .filter(a => (a.nombre + ' ' + a.apellido + ' ' + a.cedula).toLowerCase().includes(atletaSearch.toLowerCase()))
+                      .map(a => (
+                        <div 
+                          key={a.id} 
+                          style={{ padding: 'var(--sp-2) var(--sp-3)', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                          onClick={() => {
+                            setForm(prev => ({ ...prev, atletaId: a.id, mesesSeleccionados: [] }));
+                            setAtletaSearch('');
+                            setIsAtletaDropdownOpen(false);
+                            if (formErrors.atletaId) setFormErrors(prev => ({ ...prev, atletaId: undefined }));
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div style={{ fontWeight: 500, color: 'var(--ink-primary)' }}>{a.nombre} {a.apellido}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>C.I: {a.cedula} · {a.categoria}</div>
+                        </div>
+                      ))}
+                    {atletasActivas.filter(a => (a.nombre + ' ' + a.apellido + ' ' + a.cedula).toLowerCase().includes(atletaSearch.toLowerCase())).length === 0 && (
+                      <div style={{ padding: 'var(--sp-3)', textAlign: 'center', color: 'var(--ink-muted)', fontSize: '0.85rem' }}>
+                        No se encontraron atletas
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
             {formErrors.atletaId && <span className="form-error">{formErrors.atletaId}</span>}
           </div>
 

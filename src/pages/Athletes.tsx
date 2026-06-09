@@ -106,7 +106,7 @@ export function Athletes() {
         (athletesFilterPayment === "aldia" && deuda === 0);
 
       return matchSearch && matchCat && matchStatus && matchPayment;
-    });
+    }).sort((a, b) => a.nombre.localeCompare(b.nombre) || a.apellido.localeCompare(b.apellido));
   }, [
     atletas,
     search,
