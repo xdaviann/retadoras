@@ -355,6 +355,7 @@ export function Transactions() {
                 <>
                   <option value="efectivo_bs">Efectivo Bs.</option>
                   <option value="pago_movil">Pago Móvil Bs.</option>
+                  <option value="punto_venta">Tarjeta de Débito</option>
                 </>
               )}
             </select>

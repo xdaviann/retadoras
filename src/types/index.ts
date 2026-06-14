@@ -2,7 +2,7 @@
 
 export type Categoria = 'Grupo A' | 'Grupo B';
 
-export type MetodoPago = 'pago_movil' | 'efectivo_bs' | 'efectivo_usd' | 'exonerado';
+export type MetodoPago = 'pago_movil' | 'efectivo_bs' | 'efectivo_usd' | 'exonerado' | 'punto_venta';
 
 export type TipoMovimiento = 'ingreso' | 'gasto';
 
@@ -94,6 +94,7 @@ export const METODOS_PAGO: Record<MetodoPago, string> = {
   efectivo_bs: 'Efectivo Bs.',
   efectivo_usd: 'Efectivo USD',
   exonerado: 'Exonerado',
+  punto_venta: 'Tarjeta de Débito',
 };
 
 export const MESES: string[] = [

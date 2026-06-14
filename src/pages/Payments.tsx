@@ -72,7 +72,8 @@ export function Payments() {
       const q = filterAtleta.toLowerCase();
       const matchAtleta =
         !q ||
-        (atleta && `${atleta.nombre} ${atleta.apellido}`.toLowerCase().includes(q));
+        (atleta && `${atleta.nombre} ${atleta.apellido}`.toLowerCase().includes(q)) ||
+        (p.referencia && p.referencia.toLowerCase().includes(q));
       const matchMes = filterMes === 'todos' || p.mes === filterMes;
       const matchAnio = p.anio === filterAnio;
       const matchMetodo = filterMetodo === 'todos' || p.metodoPago === filterMetodo;
@@ -242,7 +243,7 @@ export function Payments() {
           <input
             className="form-input"
             type="search"
-            placeholder="Buscar atleta..."
+            placeholder="Buscar atleta o referencia..."
             value={filterAtleta}
             onChange={(e) => setFilterAtleta(e.target.value)}
           />
@@ -518,6 +519,7 @@ export function Payments() {
                     <>
                       <option value="efectivo_bs">Efectivo Bs.</option>
                       <option value="pago_movil">Pago Móvil Bs.</option>
+                      <option value="punto_venta">Tarjeta de Débito</option>
                     </>
                   )}
                 </select>
